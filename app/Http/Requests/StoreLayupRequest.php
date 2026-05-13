@@ -22,7 +22,8 @@ class StoreLayupRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'supplier_id' => 'required|exists:suppliers,id',
+            'name' => 'required|string|max:255',
         ];
     }
 }

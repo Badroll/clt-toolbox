@@ -22,7 +22,11 @@ class StoreLayerRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'layup_id' => 'required|exists:clt_layups,id',
+            'layer_order' => 'required|integer|min:1',
+            'thickness' => 'required|numeric|min:0',
+            'width' => 'required|numeric|min:0',
+            'angle' => 'required|numeric|between:-360,360',
         ];
     }
 }
