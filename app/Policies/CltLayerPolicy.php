@@ -13,7 +13,7 @@ class CltLayerPolicy
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class CltLayerPolicy
      */
     public function view(User $user, CltLayer $cltLayer): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class CltLayerPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class CltLayerPolicy
      */
     public function update(User $user, CltLayer $cltLayer): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class CltLayerPolicy
      */
     public function delete(User $user, CltLayer $cltLayer): bool
     {
-        return false;
+        return true;
     }
 
     /**

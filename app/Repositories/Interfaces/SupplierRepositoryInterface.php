@@ -9,4 +9,7 @@ interface SupplierRepositoryInterface
     public function create(array $data);
     public function update($id, array $data);
     public function delete($id);
+
+    public function getAllWithCount();
+    public function findWithLayups(int $id);
 }

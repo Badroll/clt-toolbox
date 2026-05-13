@@ -24,4 +24,17 @@ class SupplierRepository implements SupplierRepositoryInterface
     public function delete($id) { 
         return Supplier::destroy($id); 
     }
+
+    public function getAllWithCount()
+    {
+        return Supplier::withCount('layups')->latest()->paginate(10);
+    }
+
+    public function findWithLayups(int $id)
+    {
+        return Supplier::with(['layups' => function($query) {
+            $query->latest();
+        }])->findOrFail($id);
+    }
+    
 }

@@ -18,7 +18,7 @@ class CltLayer extends Model
     ];
     
     public function layup() { 
-        return $this->belongsTo(CltLayup::class); 
+        return $this->belongsTo(CltLayup::class, 'layup_id', 'id'); 
     }
 
 }

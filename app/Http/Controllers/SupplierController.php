@@ -7,6 +7,7 @@ use App\Http\Requests\StoreSupplierRequest;
 use App\Http\Requests\ImportSupplierRequest;
 use App\Repositories\Interfaces\SupplierRepositoryInterface;
 use App\Services\CltService;
+use App\Services\SupplierService;
 
 use Illuminate\Http\Request;
 
@@ -26,9 +27,17 @@ class SupplierController extends Controller
     public function index()
     {
         $this->authorize('viewAny', Supplier::class);
-        $suppliers = $this->supplierRepo->all();
-        
-        return response()->json($suppliers);
+
+        return view('supplier.index', [
+            'suppliers' => $this->supplierRepo->getAllWithCount()
+        ]);
+    }
+
+    public function create(Supplier $supplier)
+    {
+        $this->authorize('view', $supplier);
+
+        return view('supplier.create');
     }
 
     public function store(StoreSupplierRequest $request)
@@ -39,17 +48,25 @@ class SupplierController extends Controller
         
         $supplier = $this->supplierRepo->create($data);
 
-        return response()->json([
-            'message' => 'Supplier created successfully',
-            'data' => $supplier
-        ], 201);
+        return redirect("suppliers")->with("success", 'Supplier created successfully');
+    }
+
+    public function edit(Supplier $supplier)
+    {
+        $this->authorize('view', $supplier);
+
+        return view('supplier.edit', [
+            'supplier' => $supplier
+        ]);
     }
 
     public function show(Supplier $supplier)
     {
         $this->authorize('view', $supplier);
         
-        return response()->json($supplier->load('layups.layers'));
+        return view('supplier.show', [
+            'supplier' => $supplier
+        ]);
     }
 
     public function update(StoreSupplierRequest $request, Supplier $supplier)
@@ -58,7 +75,7 @@ class SupplierController extends Controller
         
         $updatedSupplier = $this->supplierRepo->update($supplier->id, $request->validated());
 
-        return response()->json($updatedSupplier);
+        return redirect("suppliers")->with("success", 'Supplier updated successfully');
     }
 
     public function destroy(Supplier $supplier)
@@ -67,7 +84,7 @@ class SupplierController extends Controller
         
         $this->supplierRepo->delete($supplier->id);
 
-        return response()->json(['message' => 'Supplier deleted']);
+        return redirect()->back()->with("success", 'Supplier deleted');
     }
 
 
@@ -82,6 +99,7 @@ class SupplierController extends Controller
     }
 
 
+    // harusnya di controller cltLayup
     public function import(ImportSupplierRequest $request, Supplier $supplier) {
         $this->authorize('update', $supplier);
 
@@ -100,6 +118,29 @@ class SupplierController extends Controller
             'message' => $request->boolean('dry_run') ? 'Dry run completed' : 'Import processed',
             'report' => $results
         ]);
+    }
+
+    public function resolveConflicts(Request $request, Supplier $supplier) 
+    {
+        $resolutions = $request->input('resolutions');
+
+        \DB::beginTransaction();
+        try {
+            foreach ($resolutions as $res) {
+                if ($res['action'] === 'overwrite') {
+                    $layer = \App\Models\CltLayer::find($res['layer_id']);
+                    if ($layer) {
+                        $layer->update($res['data']);
+                    }
+                }
+                // Jika 'keep', kita tidak melakukan apa-apa (biarkan data lama)
+            }
+            \DB::commit();
+            return response()->json(['message' => 'Conflicts resolved successfully']);
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json(['message' => 'Error: ' . $e->getMessage()], 500);
+        }
     }
 
 }

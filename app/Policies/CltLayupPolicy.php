@@ -13,7 +13,7 @@ class CltLayupPolicy
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class CltLayupPolicy
      */
     public function view(User $user, CltLayup $cltLayup): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class CltLayupPolicy
      */
     public function delete(User $user, CltLayup $cltLayup): bool
     {
-        return false;
+        return true;
     }
 
     /**

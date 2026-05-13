@@ -16,6 +16,12 @@ class CltLayupController extends Controller
         $this->layupRepo = $layupRepo;
     }
 
+    public function create(Supplier $supplier)
+    {
+        // Sekarang $supplier otomatis terisi berkat Route Model Binding
+        return view('layup.create', compact('supplier'));
+    }
+
     public function store(StoreLayupRequest $request, Supplier $supplier)
     {
         $this->authorize('create', CltLayup::class);
@@ -26,7 +32,24 @@ class CltLayupController extends Controller
 
         $layup = $this->layupRepo->create($data);
 
-        return response()->json($layup, 201);
+        return redirect()->route('suppliers.show', $supplier)
+            ->with('success', 'Layup created successfully');
+    }
+
+    public function show(CltLayup $cltLayup)
+    {
+        // Karena menggunakan .shallow(), show layup tidak butuh ID supplier di URL
+        // Cukup /layups/{layup}
+        return view('layup.show', compact('cltLayup'));
+    }
+
+    public function edit(CltLayup $cltLayup)
+    {
+        $this->authorize('view', $cltLayup);
+
+        return view('layup.edit', [
+            'cltLayup' => $cltLayup
+        ]);
     }
 
     public function update(StoreLayupRequest $request, CltLayup $cltLayup)

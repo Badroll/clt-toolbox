@@ -166,6 +166,39 @@ class SupplierImportTest extends TestCase
     }
 
 
+    #[Test]
+    public function it_provides_detailed_conflict_mapping_for_ui()
+    {
+        $layup = CltLayup::create(['supplier_id' => $this->supplier->id, 'name' => 'CLT-5-150-L']);
+        CltLayer::create([
+            'layup_id' => $layup->id,
+            'layer_order' => 2,
+            'thickness' => 30, // existing
+            'width' => 150,
+            'angle' => 90
+        ]);
+
+        $importData = [
+            'layups' => [[
+                'name' => 'CLT-5-150-L',
+                'layers' => [
+                    ['layer_order' => 2, 'thickness' => 35, 'width' => 150, 'angle' => 90] // imprting 35
+                ]
+            ]]
+        ];
+
+        $response = $this->actingAs($this->user)->postJson("/suppliers/{$this->supplier->id}/import", [
+            'strategy' => 'skip',
+            'dry_run' => true,
+            'file' => $this->createFakeJsonFile($importData)
+        ]);
+
+        // cek apakah detail konflik mengandung info thickness yg berbeda
+        $this->assertEquals('thickness', $response->json('report.conflicts_detail.0.layers.0.diff_fields.0'));
+    }
+
+
+    // HELPER =======================================================================================================
     private function createFakeJsonFile(array $data)
     {
         $path = tempnam(sys_get_temp_dir(), 'test') . '.json';
