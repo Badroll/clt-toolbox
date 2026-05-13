@@ -52,8 +52,10 @@
                 <p class="text-sm text-stone-500 mt-0.5">Fill in the supplier details below.</p>
             </div>
 
-            <form method="PUT" action="{{ route('suppliers.update', $supplier) }}" class="px-6 py-6 space-y-5">
+            <form method="POST" action="{{ route('suppliers.update', $supplier) }}" class="px-6 py-6 space-y-5">
+                
                 @csrf
+                @method('PUT')
 
                 {{-- Name --}}
                 <div>

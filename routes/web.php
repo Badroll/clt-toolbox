@@ -12,7 +12,8 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', function () {
-    return view('dashboard');
+    //return view('dashboard');
+    return redirect("suppliers");
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
@@ -132,6 +133,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('suppliers/{supplier}/export', [SupplierController::class, 'export'])->name('suppliers.export');
     Route::post('suppliers/{supplier}/import', [SupplierController::class, 'import'])->name('suppliers.import');
+    Route::post('suppliers/{supplier}/resolve-conflicts', [SupplierController::class, 'resolveConflicts'])->name('suppliers.resolve-conflicts');
 
     //...
 });

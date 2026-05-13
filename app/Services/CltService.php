@@ -116,4 +116,43 @@ class CltService
 
         return $diffFields;
     }
+
+
+    public function applyManualResolutions($supplier, array $resolutions): array
+    {
+        $summary = ['updated' => 0, 'skipped' => 0];
+
+        DB::transaction(function () use ($supplier, $resolutions, &$summary) {
+            foreach ($resolutions as $item) {
+                // $item = { key, decision, importing_data }
+                [$layupName, $layerOrder] = explode('::', $item['key'], 2);
+
+                $layup = CltLayup::where('supplier_id', $supplier->id)
+                                ->where('name', $layupName)
+                                ->first();
+
+                if (!$layup) continue;
+
+                $layer = CltLayer::where('layup_id', $layup->id)
+                                ->where('layer_order', (int) $layerOrder)
+                                ->first();
+
+                if (!$layer) continue;
+
+                if ($item['decision'] === 'accept' && !empty($item['importing_data'])) {
+                    $layer->update([
+                        'thickness' => $item['importing_data']['thickness'],
+                        'width'     => $item['importing_data']['width'],
+                        'angle'     => $item['importing_data']['angle'],
+                    ]);
+                    $summary['updated']++;
+                } else {
+                    $summary['skipped']++;
+                }
+            }
+        });
+
+        return $summary;
+    }
+
 }

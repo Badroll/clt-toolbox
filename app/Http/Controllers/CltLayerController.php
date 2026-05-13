@@ -52,7 +52,7 @@ class CltLayerController extends Controller
         
         $updated = $this->layerRepo->update($cltLayer->id, $request->validated());
 
-        return response()->json($updated);
+        return redirect()->route('layups.show', $cltLayer->layup)->with("success", 'Layer updated');
     }
 
 
@@ -61,6 +61,6 @@ class CltLayerController extends Controller
         $this->authorize('delete', $cltLayer);
         $this->layerRepo->delete($cltLayer->id);
 
-        return response()->json(['message' => 'Layer deleted']);
+        return redirect()->back()->with("success", 'Layer deleted');
     }
 }

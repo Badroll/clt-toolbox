@@ -249,7 +249,7 @@
 
                         <a href="{{ route('layups.show', $cltLayer->layup) }}"
                             class="text-sm text-stone-500 hover:text-stone-700 transition-colors">
-                            Cancel
+                            Back
                         </a>
 
                         <button type="submit"

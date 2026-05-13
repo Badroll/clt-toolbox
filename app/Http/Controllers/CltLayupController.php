@@ -58,7 +58,7 @@ class CltLayupController extends Controller
         
         $updated = $this->layupRepo->update($cltLayup->id, $request->validated());
 
-        return response()->json($updated);
+        return redirect()->route('suppliers.show', $cltLayup->supplier)->with("success", 'Layup updated');
     }
 
     public function destroy(CltLayup $cltLayup)
@@ -66,6 +66,6 @@ class CltLayupController extends Controller
         $this->authorize('delete', $cltLayup);
         $this->layupRepo->delete($cltLayup->id);
 
-        return response()->json(['message' => 'Layup deleted']);
+        return redirect()->back()->with("success", 'Layup deleted');
     }
 }

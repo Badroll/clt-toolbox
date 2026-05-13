@@ -131,11 +131,10 @@
 
                     {{-- Delete --}}
                     <form method="POST"
-                        action="{{ route('layups.destroy', $cltLayup) }}"
+                        action="{{ route('layups.update', $cltLayup) }}"
                         onsubmit="return confirm('Delete this layup?')">
 
                         @csrf
-                        @method('DELETE')
 
                         <button type="submit"
                             class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors">
@@ -152,9 +151,9 @@
                     {{-- Right Actions --}}
                     <div class="flex items-center gap-3">
 
-                        <a href="{{ route('layups.show', $cltLayup) }}"
+                        <a href="{{ route('suppliers.show', $cltLayup->supplier) }}"
                             class="text-sm text-stone-500 hover:text-stone-700 transition-colors">
-                            Cancel
+                            Back
                         </a>
 
                         <button type="submit"

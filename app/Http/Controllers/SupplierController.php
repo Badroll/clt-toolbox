@@ -75,7 +75,7 @@ class SupplierController extends Controller
         
         $updatedSupplier = $this->supplierRepo->update($supplier->id, $request->validated());
 
-        return redirect("suppliers")->with("success", 'Supplier updated successfully');
+        return redirect("suppliers")->with("success", 'Supplier updated');
     }
 
     public function destroy(Supplier $supplier)
@@ -120,27 +120,24 @@ class SupplierController extends Controller
         ]);
     }
 
-    public function resolveConflicts(Request $request, Supplier $supplier) 
+    
+    public function resolveConflicts(Request $request, Supplier $supplier)
     {
-        $resolutions = $request->input('resolutions');
+        $this->authorize('update', $supplier);
 
-        \DB::beginTransaction();
-        try {
-            foreach ($resolutions as $res) {
-                if ($res['action'] === 'overwrite') {
-                    $layer = \App\Models\CltLayer::find($res['layer_id']);
-                    if ($layer) {
-                        $layer->update($res['data']);
-                    }
-                }
-                // Jika 'keep', kita tidak melakukan apa-apa (biarkan data lama)
-            }
-            \DB::commit();
-            return response()->json(['message' => 'Conflicts resolved successfully']);
-        } catch (\Exception $e) {
-            \DB::rollBack();
-            return response()->json(['message' => 'Error: ' . $e->getMessage()], 500);
+        $resolutions = $request->input('resolutions', []);
+        // Format: { "LayupName::2": "keep"|"accept", ... }
+
+        if (empty($resolutions)) {
+            return response()->json(['message' => 'No resolutions provided.'], 422);
         }
+
+        $summary = $this->cltService->applyManualResolutions($supplier, $resolutions);
+
+        return response()->json([
+            'message' => 'Resolutions applied successfully.',
+            'summary' => $summary,
+        ]);
     }
 
 }

@@ -225,7 +225,12 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form id="import-form" method="POST" action="{{ route('suppliers.import', $supplier) ?? '#' }}" enctype="multipart/form-data" class="px-6 py-5 space-y-5">
+        <form id="import-form"
+            method="POST"
+            action="{{ route('suppliers.import', $supplier) }}"
+            enctype="multipart/form-data"
+            data-resolve-url="{{ route('suppliers.resolve-conflicts', $supplier) }}"
+            class="px-6 py-5 space-y-5">
             @csrf
             <div class="border-2 border-dashed border-stone-200 rounded-xl p-8 text-center cursor-pointer hover:border-[#3D6B4F]/40 hover:bg-stone-50/50 transition-all group"
                 onclick="document.getElementById('import-file').click()">
@@ -302,26 +307,65 @@
         </div>
 
         {{-- Footer --}}
-        <div class="px-6 py-4 border-t border-stone-100 flex justify-between items-center">
-            <span id="conflict-pagination" class="text-xs text-stone-400 font-medium"></span>
-            <div class="flex gap-2">
-                <button onclick="closeConflictModal()" class="px-4 py-2 text-xs font-bold text-stone-500">Cancel Import</button>
-                <button id="btn-keep-existing" class="px-4 py-2 text-xs font-bold border border-stone-200 rounded-lg">Keep Existing</button>
-                <button id="btn-accept-new" class="px-4 py-2 text-xs font-bold bg-[#3D6B4F] text-white rounded-lg">Accept New</button>
+        <div class="px-6 py-4 border-t border-stone-100 flex justify-between items-center bg-stone-50/30">
+            <div class="flex items-center gap-3">
+                <button onclick="closeConflictModal()"
+                    class="text-xs font-semibold text-stone-400 hover:text-stone-600 transition px-3 py-2 rounded-lg hover:bg-stone-100">
+                    Cancel Import
+                </button>
+                <button id="btn-prev-conflict" disabled
+                    class="inline-flex items-center gap-1 text-xs font-semibold text-stone-500 hover:text-stone-700 disabled:opacity-30 px-3 py-2 rounded-lg hover:bg-stone-100 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                    Previous
+                </button>
+                <span id="conflict-pagination" class="text-[11px] font-bold text-stone-400 uppercase tracking-wider"></span>
+                <button id="btn-next-conflict"
+                    class="inline-flex items-center gap-1 text-xs font-semibold text-stone-500 hover:text-stone-700 disabled:opacity-30 px-3 py-2 rounded-lg hover:bg-stone-100 transition">
+                    Next
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-keep-existing"
+                    class="px-4 py-2 text-xs font-bold text-stone-600 border border-stone-200 bg-white hover:bg-stone-50 rounded-lg transition">
+                    Keep Existing
+                </button>
+                <button id="btn-accept-new"
+                    class="px-4 py-2 text-xs font-bold bg-[#3D6B4F] hover:bg-[#2f5540] text-white rounded-lg transition shadow-sm">
+                    Accept New
+                </button>
+                <button id="btn-submit-resolutions"
+                    class="px-4 py-2 text-xs font-bold bg-[#2f5540] hover:bg-[#2f5540] text-white rounded-lg transition shadow-sm">
+                    Apply Resolutions
+                </button>
             </div>
         </div>
+
     </div>
 </div>
 
 <script>
+// State
+let allConflicts   = [];   // data dari server
+let resolutions    = {};   // { "LayupName::0": "keep" | "accept", ... }
+let currentIndex   = 0;    // index konflik layup yang sedang ditampilkan
+let importSupplierUrl = ''; // akan diisi saat import selesai
 
-    document.getElementById('import-form').addEventListener('submit', async (e) => {
+// Import Form
+document.getElementById('import-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const btn = e.target.querySelector('button[type="submit"]');
-    
+
     btn.disabled = true;
     btn.innerText = 'Processing...';
+
+    // Simpan URL untuk resolve nanti
+    importSupplierUrl = e.target.dataset.resolveUrl;
 
     try {
         const response = await fetch(e.target.action, {
@@ -332,86 +376,285 @@
 
         const data = await response.json();
 
-        if (data.report.summary.conflicts > 0) {
-            // Jika ada konflik, buka modal resolusi (Halaman 3 PDF)
+        if (data.report && data.report.summary.conflicts > 0) {
             showConflictInterface(data.report.conflicts_detail);
         } else {
-            alert('Import Successful!');
-            window.location.reload();
+            showToast(data.message || 'Import successful!', 'success');
+            setTimeout(() => window.location.reload(), 1500);
         }
     } catch (error) {
-        alert('Something went wrong');
+        showToast('Something went wrong. Please try again.', 'error');
     } finally {
         btn.disabled = false;
         btn.innerText = 'Start Import';
+        document.getElementById('import-modal').classList.add('hidden');
     }
 });
 
+// Tampilkan Modal Conflict
 function showConflictInterface(conflicts) {
-    document.getElementById('import-modal').classList.add('hidden');
-    const modal = document.getElementById('conflict-modal');
-    modal.classList.remove('hidden');
+    allConflicts = conflicts;
+    resolutions  = {};
+    currentIndex = 0;
 
-    const listContainer = document.getElementById('conflict-list');
-    listContainer.innerHTML = '';
-
-    conflicts.forEach((item, index) => {
-        const btn = document.createElement('button');
-        btn.className = `w-full text-left p-3 rounded-lg text-xs font-medium transition ${index === 0 ? 'bg-white shadow-sm border border-stone-200 text-[#3D6B4F]' : 'text-stone-500 hover:bg-stone-100'}`;
-        btn.innerHTML = `
-            <div class="flex items-center justify-between">
-                <span>${item.layup_name}</span>
-                <span class="w-2 h-2 bg-red-400 rounded-full"></span>
-            </div>
-            <div class="text-[10px] text-stone-400 mt-1">${item.layers.length} conflicts</div>
-        `;
-        btn.onclick = () => renderConflictDetail(item, conflicts.length, index + 1);
-        listContainer.appendChild(btn);
+    // Siapkan default resolusi (semua "keep")
+    allConflicts.forEach(item => {
+        item.layers.forEach(layer => {
+            const key = makeKey(item.layup_name, layer.order);
+            resolutions[key] = 'keep';
+        });
     });
 
-    // Render item pertama secara default
-    renderConflictDetail(conflicts[0], conflicts.length, 1);
+    document.getElementById('conflict-modal').classList.remove('hidden');
+    renderSidebar();
+    renderConflictDetail(allConflicts[0], 0);
+    checkAllResolved();
 }
 
-function renderConflictDetail(data, total, current) {
-    document.getElementById('conflict-pagination').innerText = `${current} of ${total} DISCREPANCIES`;
-    const existingContainer = document.getElementById('existing-container');
+//  Key helper 
+function makeKey(layupName, order) {
+    return `${layupName}::${order}`;
+}
+
+//  Sidebar 
+function renderSidebar() {
+    const list = document.getElementById('conflict-list');
+    list.innerHTML = '';
+
+    allConflicts.forEach((item, idx) => {
+        const resolvedCount = item.layers.filter(l =>
+            resolutions[makeKey(item.layup_name, l.order)] !== undefined
+        ).length;
+        const allResolved = resolvedCount === item.layers.length;
+
+        const btn = document.createElement('button');
+        btn.className = `w-full text-left p-3 rounded-lg text-xs font-medium transition
+            ${idx === currentIndex ? 'bg-white shadow-sm border border-stone-200 text-[#3D6B4F]' : 'text-stone-500 hover:bg-stone-100'}`;
+
+        btn.innerHTML = `
+            <div class="flex items-center justify-between">
+                <span class="font-semibold">${item.layup_name}</span>
+                <span class="w-2 h-2 rounded-full ${allResolved ? 'bg-green-400' : 'bg-red-400'}"></span>
+            </div>
+            <div class="text-[10px] text-stone-400 mt-1">${item.layers.length} layer conflict(s)</div>
+        `;
+        btn.onclick = () => {
+            currentIndex = idx;
+            renderSidebar();
+            renderConflictDetail(item, idx);
+        };
+        list.appendChild(btn);
+    });
+}
+
+//  Render Detail Perbandingan 
+function renderConflictDetail(data, idx) {
+    const total = allConflicts.length;
+    document.getElementById('conflict-pagination').innerText =
+        `${idx + 1} of ${total} DISCREPANCIES`;
+
+    const existingContainer  = document.getElementById('existing-container');
     const importingContainer = document.getElementById('importing-container');
-    
-    existingContainer.innerHTML = '';
+    existingContainer.innerHTML  = '';
     importingContainer.innerHTML = '';
 
     data.layers.forEach(layer => {
-        // Buat tabel perbandingan kecil untuk setiap layer yang konflik
-        const htmlExisting = createLayerCard(layer.existing, layer.diff_fields, false);
-        const htmlImporting = createLayerCard(layer.importing, layer.diff_fields, true);
-        
-        existingContainer.insertAdjacentHTML('beforeend', htmlExisting);
-        importingContainer.insertAdjacentHTML('beforeend', htmlImporting);
+        const key = makeKey(data.layup_name, layer.order);
+        const chosen = resolutions[key] || 'keep';
+
+        existingContainer.insertAdjacentHTML('beforeend',
+            createLayerCard(layer.existing, layer.diff_fields, false, key, chosen, data.layup_name)
+        );
+        importingContainer.insertAdjacentHTML('beforeend',
+            createLayerCard(layer.importing, layer.diff_fields, true, key, chosen, data.layup_name)
+        );
     });
+
+    // Update tombol footer sesuai state konflik pertama yang ditampilkan
+    updateFooterButtons(data);
+
+    // Navigasi Prev / Next
+    document.getElementById('btn-prev-conflict').disabled = idx === 0;
+    document.getElementById('btn-next-conflict').disabled = idx === total - 1;
 }
 
-function createLayerCard(layer, diffs, isImporting) {
-    const highlight = (field) => diffs.includes(field) ? 'bg-red-50 text-red-600 font-bold' : '';
+// Card Layer 
+function createLayerCard(layer, diffs, isImporting, key, chosen, layupName) {
+    const highlight = (field) =>
+        diffs.includes(field)
+            ? 'bg-red-50 border border-red-100 text-red-700 font-semibold rounded'
+            : '';
+
+    const side = isImporting ? 'accept' : 'keep';
+    const isSelected = chosen === side;
+
+    const selectionRing = isSelected
+        ? 'ring-2 ring-[#3D6B4F] ring-offset-1'
+        : 'ring-1 ring-stone-100';
+
     return `
-        <div class="p-4 border border-stone-100 rounded-lg bg-white text-xs space-y-2">
-            <div class="flex justify-between ${highlight('thickness')} p-1 rounded">
-                <span>Thickness:</span> <span>${layer.thickness}mm</span>
+        <div class="p-4 rounded-xl bg-white text-xs space-y-2 ${selectionRing} transition-all"
+             id="card-${side}-${key.replace('::', '-')}">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-2">
+                Layer ${layer.layer_order ?? layer.order ?? '–'}
+                ${isSelected ? '<span class="ml-2 text-[#3D6B4F]">✓ selected</span>' : ''}
             </div>
-            <div class="flex justify-between ${highlight('width')} p-1 rounded">
-                <span>Width:</span> <span>${layer.width}mm</span>
+            <div class="flex justify-between items-center px-2 py-1 ${highlight('thickness')}">
+                <span class="text-stone-500">Thickness</span>
+                <span>${layer.thickness} mm</span>
             </div>
-            <div class="flex justify-between ${highlight('angle')} p-1 rounded">
-                <span>Angle:</span> <span>${layer.angle}°</span>
+            <div class="flex justify-between items-center px-2 py-1 ${highlight('width')}">
+                <span class="text-stone-500">Width</span>
+                <span>${layer.width} mm</span>
+            </div>
+            <div class="flex justify-between items-center px-2 py-1 ${highlight('angle')}">
+                <span class="text-stone-500">Angle</span>
+                <span>${layer.angle}°</span>
             </div>
         </div>
     `;
 }
 
-function closeConflictModal() {
-    document.getElementById('conflict-modal').classList.add('hidden');
+// Update tombol footer 
+function updateFooterButtons(data) {
+    // Cek apakah semua layer di konflik ini sudah diresolved ke "keep"
+    const allKeep = data.layers.every(l =>
+        resolutions[makeKey(data.layup_name, l.order)] === 'keep'
+    );
+    const allAccept = data.layers.every(l =>
+        resolutions[makeKey(data.layup_name, l.order)] === 'accept'
+    );
+
+    document.getElementById('btn-keep-existing').classList.toggle(
+        'bg-stone-100', allKeep
+    );
+    document.getElementById('btn-accept-new').classList.toggle(
+        'ring-2', allAccept
+    );
 }
 
+// Tombol Keep All di konflik ini
+document.getElementById('btn-keep-existing').addEventListener('click', () => {
+    const data = allConflicts[currentIndex];
+    data.layers.forEach(l => {
+        resolutions[makeKey(data.layup_name, l.order)] = 'keep';
+    });
+    renderSidebar();
+    renderConflictDetail(data, currentIndex);
+    checkAllResolved();
+});
 
+// Tombol Accept All di konflik ini
+document.getElementById('btn-accept-new').addEventListener('click', () => {
+    const data = allConflicts[currentIndex];
+    data.layers.forEach(l => {
+        resolutions[makeKey(data.layup_name, l.order)] = 'accept';
+    });
+    renderSidebar();
+    renderConflictDetail(data, currentIndex);
+    checkAllResolved();
+});
+
+// Navigasi Prev / Next
+document.getElementById('btn-prev-conflict').addEventListener('click', () => {
+    if (currentIndex > 0) {
+        currentIndex--;
+        renderSidebar();
+        renderConflictDetail(allConflicts[currentIndex], currentIndex);
+    }
+});
+
+document.getElementById('btn-next-conflict').addEventListener('click', () => {
+    if (currentIndex < allConflicts.length - 1) {
+        currentIndex++;
+        renderSidebar();
+        renderConflictDetail(allConflicts[currentIndex], currentIndex);
+    }
+});
+
+// Cek apakah semua konflik sudah diresolved → tampilkan tombol Submit
+function checkAllResolved() {
+    const totalKeys = Object.keys(resolutions).length;
+    const resolvedKeys = Object.values(resolutions).filter(v => v !== undefined).length;
+    if (totalKeys === resolvedKeys) {
+        document.getElementById('btn-submit-resolutions').classList.remove('hidden');
+    }
+}
+
+// Submit Resolusi ke Backend
+document.getElementById('btn-submit-resolutions').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-submit-resolutions');
+    //btn.disabled = true;
+    btn.innerText = 'Applying...';
+
+    // Bangun payload lengkap — sertakan importing_data untuk yang "accept"
+    const payload = {
+        resolutions: Object.entries(resolutions).map(([key, decision]) => {
+            const [layupName, order] = key.split('::');
+            const conflict = allConflicts.find(c => c.layup_name === layupName);
+            const layer = conflict?.layers.find(l => String(l.order) === order);
+            return {
+                key,
+                decision,
+                importing_data: decision === 'accept' ? layer?.importing : null
+            };
+        })
+    };
+
+    console.log(payload)
+
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const response = await fetch(importSupplierUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showToast(`Done! ${data.summary?.updated ?? 0} updated, ${data.summary?.skipped ?? 0} kept.`, 'success');
+            document.getElementById('conflict-modal').classList.add('hidden');
+            setTimeout(() => window.location.reload(), 1800);
+        } else {
+            showToast(data.message || 'Failed to apply resolutions.', 'error');
+        }
+    } catch (err) {
+        showToast('Network error. Please try again.', 'error');
+    } finally {
+        //btn.disabled = false;
+        btn.innerText = 'Apply Resolutions';
+    }
+});
+
+// Close modal
+function closeConflictModal() {
+    document.getElementById('conflict-modal').classList.add('hidden');
+    allConflicts = [];
+    resolutions  = {};
+}
+
+// Toast Notification
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    const bg = type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800';
+    toast.className = `fixed bottom-6 right-6 z-[100] flex items-center gap-3 ${bg} border text-sm px-4 py-3 rounded-lg shadow-lg transition-all`;
+    toast.innerHTML = `
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            ${type === 'success'
+                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>'
+                : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>'}
+        </svg>
+        <span>${message}</span>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+}
 </script>
+
 @endsection
