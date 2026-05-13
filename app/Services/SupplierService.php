@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Supplier;
+
 use App\Repositories\Interfaces\SupplierRepositoryInterface;
 
 class SupplierService
@@ -17,5 +19,8 @@ class SupplierService
         return $this->supplierRepo->all();
     }
     
-    // TODO
+    public function exportSupplierData(Supplier $supplier) {
+        return $supplier->load(['layups.layers'])->toArray();
+    }
+
 }

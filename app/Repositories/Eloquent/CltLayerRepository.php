@@ -7,8 +7,8 @@ use App\Repositories\Interfaces\CltLayerRepositoryInterface;
 
 class CltLayerRepository implements CltLayerRepositoryInterface
 {
-    public function findByLayup($layupIdd) {
-        return CltLayer::where('layup_id', $layupIdd)->get();
+    public function findByLayup($layupId) {
+        return CltLayer::where('layup_id', $layupId)->get();
     }
 
     public function find($id) { 

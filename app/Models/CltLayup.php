@@ -3,10 +3,17 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class CltLayup extends Model
 {
-    
+    use HasFactory;
+
+    protected $fillable = [
+        'supplier_id',
+        'name'
+    ];
+
     public function supplier() { 
         return $this->belongsTo(Supplier::class); 
     }
